@@ -7,6 +7,10 @@ Modern **accordion survey tool** with a real form start screen, mixed question t
 
 **Live demo:** https://abhisekumar.github.io/accordion-survey/
 
+Prefill and auto-start with query params:
+
+`https://abhisekumar.github.io/accordion-survey/?name=Jaga&email=aj@google.com`
+
 ## Why use it
 
 - Demo a production-style feedback + quiz flow

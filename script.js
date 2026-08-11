@@ -400,6 +400,37 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
+  function applyQueryProfile() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const name = (params.get("name") || "").trim();
+      const email = (params.get("email") || "").trim();
+      let changed = false;
+
+      if (name) {
+        profile.name = name;
+        els.profileName.value = name;
+        changed = true;
+      }
+      if (email) {
+        profile.email = email;
+        els.profileEmail.value = email;
+        changed = true;
+      }
+
+      if (!changed) return false;
+
+      // Clean the address bar so refresh doesn't keep stale params confusing.
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+
+      return name.length >= 2 && isValidEmail(email);
+    } catch (error) {
+      return false;
+    }
+  }
+
   function updateProfileChip() {
     els.profileChip.textContent = profile.name + " · " + profile.email;
   }
