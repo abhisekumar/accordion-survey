@@ -1019,6 +1019,32 @@
     showSurvey();
   });
 
+  document.addEventListener("keydown", function (event) {
+    if (event.target.matches("input, textarea, select, [contenteditable='true']")) {
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    if (!els.startPanel.classList.contains("hidden")) {
+      return;
+    }
+    if (!els.resultsPanel.classList.contains("hidden")) {
+      return;
+    }
+    if (els.surveyShell.classList.contains("hidden")) {
+      return;
+    }
+
+    if (event.key === "ArrowRight" && !els.nextSurvey.disabled) {
+      event.preventDefault();
+      els.nextSurvey.click();
+    } else if (event.key === "ArrowLeft" && !els.prevSurvey.disabled) {
+      event.preventDefault();
+      els.prevSurvey.click();
+    }
+  });
+
   els.downloadJson.addEventListener("click", function () {
     const insights = buildInsights();
     const payload = {
