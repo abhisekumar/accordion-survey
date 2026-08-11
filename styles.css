@@ -90,6 +90,11 @@ body {
   transition: width 0.25s ease;
 }
 
+#surveyShell {
+  display: grid;
+  gap: 14px;
+}
+
 .survey-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
