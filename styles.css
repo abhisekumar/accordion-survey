@@ -223,6 +223,32 @@ body {
 .question-title {
   font-weight: 700;
   font-size: 0.95rem;
+  display: grid;
+  gap: 4px;
+}
+
+.type-badge {
+  width: fit-content;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .voted {
@@ -230,6 +256,11 @@ body {
   font-size: 0.82rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.voted.optional-tag {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .chevron {
@@ -310,10 +341,103 @@ body {
   outline-offset: 2px;
 }
 
-.rating input:checked + span {
+.rating input:checked + span,
+.choice-group input:checked + span {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+.choice-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.choice-group.boolean {
+  grid-template-columns: 1fr 1fr;
+}
+
+.choice-group label {
+  position: relative;
+  cursor: pointer;
+}
+
+.choice-group input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice-group span {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
+  transition: 0.15s ease;
+}
+
+.choice-group label:hover span {
+  border-color: #99c7c1;
+  color: var(--accent-2);
+}
+
+.choice-group input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.choice-group.boolean label:first-child input:checked + span {
+  background: var(--accent);
+}
+
+.choice-group.boolean label:last-child input:checked + span {
+  background: #9f1239;
+  border-color: #9f1239;
+}
+
+.text-field {
+  margin-top: 12px;
+}
+
+.text-field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font: inherit;
+  color: var(--ink);
+  resize: vertical;
+  min-height: 96px;
+  outline: none;
+  background: #fff;
+}
+
+.text-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.text-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.result-group.insights {
+  background: var(--accent-soft);
+  border-color: #7ec8bd;
 }
 
 .survey-actions {
@@ -429,7 +553,8 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .rating {
+  .rating,
+  .choice-group {
     grid-template-columns: 1fr 1fr;
   }
 

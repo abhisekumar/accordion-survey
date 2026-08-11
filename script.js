@@ -12,41 +12,85 @@
       id: "survey-1",
       title: "Survey I",
       intro:
-        "Start with the basics. Open each question, pick a rating, and we’ll remember your choice as you move through the accordion.",
+        "Basics first. This section mixes ratings and True/False so you can capture both opinion and clear yes/no signals.",
       questions: [
-        "How clear was the overall experience?",
-        "How easy was it to find what you needed?",
-        "How would you rate the visual design?",
-        "How likely are you to recommend this?",
+        {
+          type: "rating",
+          text: "How clear was the overall experience?",
+        },
+        {
+          type: "boolean",
+          text: "Was the survey easy to understand?",
+        },
+        {
+          type: "rating",
+          text: "How would you rate the visual design?",
+        },
+        {
+          type: "text",
+          text: "What is one thing we should improve?",
+          placeholder: "Type a short suggestion…",
+        },
       ],
     },
     {
       id: "survey-2",
       title: "Survey II",
       intro:
-        "This section focuses on usefulness and flow. Answer one question at a time — completed items show your vote on the right.",
+        "Usefulness and flow. True/False catches blockers quickly; ratings show strength; text captures detail.",
       questions: [
-        "How useful were the main features?",
-        "How smooth was the interaction flow?",
-        "How satisfied are you with the speed?",
-        "How well did this meet your expectations?",
+        {
+          type: "boolean",
+          text: "Did you find the main feature you needed?",
+        },
+        {
+          type: "rating",
+          text: "How smooth was the interaction flow?",
+        },
+        {
+          type: "choice",
+          text: "Which device did you use?",
+          options: [
+            { value: "mobile", label: "Mobile" },
+            { value: "tablet", label: "Tablet" },
+            { value: "desktop", label: "Desktop" },
+          ],
+        },
+        {
+          type: "rating",
+          text: "How well did this meet your expectations?",
+        },
       ],
     },
     {
       id: "survey-3",
       title: "Survey III",
       intro:
-        "Final thoughts. Finish the remaining questions, then send to review a full summary of your responses.",
+        "Final thoughts. Finish with confidence checks and open feedback, then send for a full summary.",
       questions: [
-        "How helpful was the guidance and copy?",
-        "How comfortable did the process feel?",
-        "How would you rate trust and clarity?",
-        "Overall, how was the complete journey?",
+        {
+          type: "boolean",
+          text: "Would you use this again?",
+        },
+        {
+          type: "boolean",
+          text: "Would you recommend this to a friend?",
+        },
+        {
+          type: "rating",
+          text: "Overall, how was the complete journey?",
+        },
+        {
+          type: "text",
+          text: "Any final comment?",
+          placeholder: "Optional detail is fine…",
+          optional: true,
+        },
       ],
     },
   ];
 
-  const STORAGE_KEY = "accordion-survey-answers-v1";
+  const STORAGE_KEY = "accordion-survey-answers-v2";
 
   const els = {
     tabs: Array.from(document.querySelectorAll(".tab")),
@@ -90,31 +134,84 @@
   }
 
   function getAnswer(surveyIndex, questionIndex) {
-    return answers[answerKey(surveyIndex, questionIndex)] || null;
+    const value = answers[answerKey(surveyIndex, questionIndex)];
+    return value === undefined || value === null ? null : value;
   }
 
-  function labelFor(value) {
-    const found = RATINGS.find(function (item) {
-      return item.value === value;
-    });
-    return found ? found.label : value;
+  function isAnswered(surveyIndex, questionIndex) {
+    const question = SURVEYS[surveyIndex].questions[questionIndex];
+    const value = getAnswer(surveyIndex, questionIndex);
+    if (question.optional) return true;
+    if (question.type === "text") {
+      return typeof value === "string" && value.trim().length > 0;
+    }
+    return value !== null && value !== "";
+  }
+
+  function displayAnswer(surveyIndex, questionIndex) {
+    const question = SURVEYS[surveyIndex].questions[questionIndex];
+    const value = getAnswer(surveyIndex, questionIndex);
+    if (value === null || value === "") return null;
+
+    if (question.type === "rating") {
+      const found = RATINGS.find(function (item) {
+        return item.value === value;
+      });
+      return found ? found.label : value;
+    }
+
+    if (question.type === "boolean") {
+      return value === "true" ? "True" : "False";
+    }
+
+    if (question.type === "choice") {
+      const found = (question.options || []).find(function (item) {
+        return item.value === value;
+      });
+      return found ? found.label : value;
+    }
+
+    if (question.type === "text") {
+      const text = String(value).trim();
+      return text.length > 28 ? text.slice(0, 28) + "…" : text;
+    }
+
+    return String(value);
   }
 
   function countAnswered(surveyIndex) {
     return SURVEYS[surveyIndex].questions.reduce(function (total, _, index) {
-      return total + (getAnswer(surveyIndex, index) ? 1 : 0);
+      const question = SURVEYS[surveyIndex].questions[index];
+      if (question.optional) {
+        const value = getAnswer(surveyIndex, index);
+        return total + (value && String(value).trim() ? 1 : 0);
+      }
+      return total + (isAnswered(surveyIndex, index) ? 1 : 0);
     }, 0);
   }
 
-  function totalAnswered() {
+  function countRequired(surveyIndex) {
+    return SURVEYS[surveyIndex].questions.filter(function (question) {
+      return !question.optional;
+    }).length;
+  }
+
+  function countRequiredAnswered(surveyIndex) {
+    return SURVEYS[surveyIndex].questions.reduce(function (total, question, index) {
+      if (question.optional) return total;
+      return total + (isAnswered(surveyIndex, index) ? 1 : 0);
+    }, 0);
+  }
+
+  function totalRequired() {
     return SURVEYS.reduce(function (total, _, index) {
-      return total + countAnswered(index);
+      return total + countRequired(index);
     }, 0);
   }
 
-  function totalQuestions() {
-    return SURVEYS.reduce(function (total, survey) {
-      return total + survey.questions.length;
+  function totalRequiredAnswered() {
+    return SURVEYS.reduce(function (total, _, index) {
+      return total + countRequiredAnswered(index);
     }, 0);
   }
 
@@ -131,59 +228,128 @@
   }
 
   function updateProgress() {
-    const answered = totalAnswered();
-    const total = totalQuestions();
+    const answered = totalRequiredAnswered();
+    const total = totalRequired();
     const pct = total ? Math.round((answered / total) * 100) : 0;
     els.progressFill.style.width = pct + "%";
-    els.overallProgress.textContent = answered + " / " + total + " answered";
+    els.overallProgress.textContent = answered + " / " + total + " required";
 
     els.counts.forEach(function (node) {
       const index = Number(node.getAttribute("data-count"));
-      const done = countAnswered(index);
-      const max = SURVEYS[index].questions.length;
-      node.textContent = done + "/" + max;
+      node.textContent =
+        countRequiredAnswered(index) + "/" + countRequired(index);
     });
 
-    const sectionDone = countAnswered(activeSurvey);
-    const sectionMax = SURVEYS[activeSurvey].questions.length;
-    els.status.textContent = sectionDone === sectionMax ? "Complete" : "In progress";
-    els.status.classList.toggle("done", sectionDone === sectionMax);
+    const sectionDone = countRequiredAnswered(activeSurvey) === countRequired(activeSurvey);
+    els.status.textContent = sectionDone ? "Complete" : "In progress";
+    els.status.classList.toggle("done", sectionDone);
+  }
+
+  function renderChoiceGroup(question, surveyIndex, questionIndex, answer) {
+    const name = SURVEYS[surveyIndex].id + "-q" + questionIndex;
+    const options =
+      question.type === "boolean"
+        ? [
+            { value: "true", label: "True" },
+            { value: "false", label: "False" },
+          ]
+        : question.type === "rating"
+          ? RATINGS
+          : question.options || [];
+
+    const className =
+      question.type === "boolean"
+        ? "choice-group boolean"
+        : question.type === "rating"
+          ? "rating"
+          : "choice-group";
+
+    return (
+      '<div class="' +
+      className +
+      '" role="radiogroup" aria-label="' +
+      question.text.replace(/"/g, "&quot;") +
+      '">' +
+      options
+        .map(function (option) {
+          const id = name + "-" + option.value;
+          const checked = answer === option.value ? " checked" : "";
+          return (
+            '<label for="' +
+            id +
+            '">' +
+            '<input type="radio" name="' +
+            name +
+            '" id="' +
+            id +
+            '" value="' +
+            option.value +
+            '"' +
+            checked +
+            " />" +
+            "<span>" +
+            option.label +
+            "</span>" +
+            "</label>"
+          );
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
+  function renderInput(question, surveyIndex, questionIndex, answer) {
+    if (question.type === "text") {
+      const id = SURVEYS[surveyIndex].id + "-q" + questionIndex + "-text";
+      return (
+        '<div class="text-field">' +
+        '<label class="sr-only" for="' +
+        id +
+        '">' +
+        question.text +
+        "</label>" +
+        '<textarea id="' +
+        id +
+        '" data-text="' +
+        questionIndex +
+        '" rows="3" maxlength="280" placeholder="' +
+        (question.placeholder || "Type your answer…").replace(/"/g, "&quot;") +
+        '">' +
+        (answer ? String(answer).replace(/</g, "&lt;") : "") +
+        "</textarea>" +
+        '<div class="text-meta">' +
+        (question.optional ? "<span>Optional</span>" : "<span>Required</span>") +
+        "<span>" +
+        (answer ? String(answer).trim().length : 0) +
+        "/280</span>" +
+        "</div>" +
+        "</div>"
+      );
+    }
+
+    return renderChoiceGroup(question, surveyIndex, questionIndex, answer);
+  }
+
+  function typeBadge(type) {
+    const labels = {
+      rating: "Rating",
+      boolean: "True / False",
+      choice: "Choice",
+      text: "Text",
+    };
+    return labels[type] || type;
   }
 
   function renderQuestions() {
     const survey = SURVEYS[activeSurvey];
     els.list.innerHTML = "";
 
-    survey.questions.forEach(function (text, index) {
+    survey.questions.forEach(function (question, index) {
       const answer = getAnswer(activeSurvey, index);
+      const shown = displayAnswer(activeSurvey, index);
       const isOpen = openQuestion === index;
       const item = document.createElement("article");
       item.className = "question" + (isOpen ? " is-open" : "");
-
-      const ratingHtml = RATINGS.map(function (rating) {
-        const id = survey.id + "-q" + index + "-" + rating.value;
-        const checked = answer === rating.value ? " checked" : "";
-        return (
-          '<label for="' +
-          id +
-          '">' +
-          '<input type="radio" name="' +
-          survey.id +
-          "-q" +
-          index +
-          '" id="' +
-          id +
-          '" value="' +
-          rating.value +
-          '"' +
-          checked +
-          " />" +
-          "<span>" +
-          rating.label +
-          "</span>" +
-          "</label>"
-        );
-      }).join("");
 
       item.innerHTML =
         '<button type="button" class="question-toggle" data-open="' +
@@ -192,21 +358,22 @@
         String(isOpen) +
         '">' +
         '<span class="question-title">' +
+        '<span class="type-badge">' +
+        typeBadge(question.type) +
+        "</span>" +
         (index + 1) +
         ". " +
-        text +
+        question.text +
         "</span>" +
-        (answer
-          ? '<span class="voted">voted: ' + labelFor(answer) + "</span>"
-          : "<span></span>") +
+        (shown
+          ? '<span class="voted">answered: ' + shown + "</span>"
+          : question.optional
+            ? '<span class="voted optional-tag">optional</span>'
+            : "<span></span>") +
         '<svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         "</button>" +
         '<div class="question-body">' +
-        '<div class="rating" role="radiogroup" aria-label="Rating for question ' +
-        (index + 1) +
-        '">' +
-        ratingHtml +
-        "</div>" +
+        renderInput(question, activeSurvey, index, answer) +
         "</div>";
 
       els.list.appendChild(item);
@@ -237,19 +404,50 @@
     updateProgress();
   }
 
-  function setAnswer(questionIndex, value) {
+  function advanceFrom(questionIndex) {
+    const nextUnanswered = SURVEYS[activeSurvey].questions.findIndex(function (question, index) {
+      return index > questionIndex && !isAnswered(activeSurvey, index);
+    });
+    if (nextUnanswered !== -1) openQuestion = nextUnanswered;
+  }
+
+  function setAnswer(questionIndex, value, shouldAdvance) {
     answers[answerKey(activeSurvey, questionIndex)] = value;
     saveAnswers();
+    if (shouldAdvance) advanceFrom(questionIndex);
+    renderSurvey();
+  }
 
-    const nextUnanswered = SURVEYS[activeSurvey].questions.findIndex(function (_, index) {
-      return index > questionIndex && !getAnswer(activeSurvey, index);
+  function buildInsights() {
+    let trueCount = 0;
+    let falseCount = 0;
+    let ratingSum = 0;
+    let ratingCount = 0;
+
+    SURVEYS.forEach(function (survey, surveyIndex) {
+      survey.questions.forEach(function (question, questionIndex) {
+        const value = getAnswer(surveyIndex, questionIndex);
+        if (question.type === "boolean") {
+          if (value === "true") trueCount += 1;
+          if (value === "false") falseCount += 1;
+        }
+        if (question.type === "rating" && value) {
+          const score = RATINGS.findIndex(function (item) {
+            return item.value === value;
+          });
+          if (score >= 0) {
+            ratingSum += score + 1;
+            ratingCount += 1;
+          }
+        }
+      });
     });
 
-    if (nextUnanswered !== -1) {
-      openQuestion = nextUnanswered;
-    }
-
-    renderSurvey();
+    return {
+      trueCount: trueCount,
+      falseCount: falseCount,
+      avgRating: ratingCount ? (ratingSum / ratingCount).toFixed(1) + " / 5" : "—",
+    };
   }
 
   function showResults() {
@@ -257,19 +455,42 @@
     els.resultsPanel.classList.remove("hidden");
     els.resultsList.innerHTML = "";
 
+    const insights = buildInsights();
+    const insight = document.createElement("div");
+    insight.className = "result-group insights";
+    insight.innerHTML =
+      "<h3>Quick insights</h3>" +
+      "<ul>" +
+      "<li><span>True answers</span><strong>" +
+      insights.trueCount +
+      "</strong></li>" +
+      "<li><span>False answers</span><strong>" +
+      insights.falseCount +
+      "</strong></li>" +
+      "<li><span>Average rating</span><strong>" +
+      insights.avgRating +
+      "</strong></li>" +
+      "</ul>";
+    els.resultsList.appendChild(insight);
+
     SURVEYS.forEach(function (survey, surveyIndex) {
       const group = document.createElement("div");
       group.className = "result-group";
       const items = survey.questions
         .map(function (question, questionIndex) {
-          const answer = getAnswer(surveyIndex, questionIndex);
+          const shown = displayAnswer(surveyIndex, questionIndex);
+          const value = getAnswer(surveyIndex, questionIndex);
+          const fullText =
+            question.type === "text" && value ? String(value).trim() : shown;
           return (
             "<li><span>" +
             (questionIndex + 1) +
             ". " +
-            question +
-            "</span><strong>" +
-            (answer ? labelFor(answer) : "—") +
+            question.text +
+            '</span><strong title="' +
+            (fullText || "—").replace(/"/g, "&quot;") +
+            '">' +
+            (fullText || (question.optional ? "Skipped" : "—")) +
             "</strong></li>"
           );
         })
@@ -306,8 +527,27 @@
     if (!(input instanceof HTMLInputElement) || input.type !== "radio") return;
     const match = input.name.match(/-q(\d+)$/);
     if (!match) return;
-    setAnswer(Number(match[1]), input.value);
+    setAnswer(Number(match[1]), input.value, true);
   });
+
+  els.list.addEventListener("input", function (event) {
+    const area = event.target;
+    if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text")) return;
+    const index = Number(area.getAttribute("data-text"));
+    answers[answerKey(activeSurvey, index)] = area.value;
+    saveAnswers();
+    updateProgress();
+    const meta = area.parentElement && area.parentElement.querySelector(".text-meta span:last-child");
+    if (meta) meta.textContent = area.value.trim().length + "/280";
+  });
+
+  els.list.addEventListener("blur", function (event) {
+    const area = event.target;
+    if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text")) return;
+    const index = Number(area.getAttribute("data-text"));
+    if (area.value.trim()) advanceFrom(index);
+    renderSurvey();
+  }, true);
 
   els.prevSurvey.addEventListener("click", function () {
     if (activeSurvey === 0) return;
@@ -327,12 +567,12 @@
   });
 
   els.sendBtn.addEventListener("click", function () {
-    const unanswered = totalQuestions() - totalAnswered();
+    const unanswered = totalRequired() - totalRequiredAnswered();
     if (unanswered > 0) {
-      showToast("Answer all questions first (" + unanswered + " left).");
+      showToast("Complete required questions first (" + unanswered + " left).");
       for (let s = 0; s < SURVEYS.length; s += 1) {
-        const missing = SURVEYS[s].questions.findIndex(function (_, q) {
-          return !getAnswer(s, q);
+        const missing = SURVEYS[s].questions.findIndex(function (question, q) {
+          return !question.optional && !isAnswered(s, q);
         });
         if (missing !== -1) {
           activeSurvey = s;
@@ -366,6 +606,7 @@
   els.downloadJson.addEventListener("click", function () {
     const payload = {
       submittedAt: new Date().toISOString(),
+      insights: buildInsights(),
       surveys: SURVEYS.map(function (survey, surveyIndex) {
         return {
           id: survey.id,
@@ -373,9 +614,11 @@
           answers: survey.questions.map(function (question, questionIndex) {
             const value = getAnswer(surveyIndex, questionIndex);
             return {
-              question: question,
+              type: question.type,
+              question: question.text,
               value: value,
-              label: value ? labelFor(value) : null,
+              label: displayAnswer(surveyIndex, questionIndex),
+              optional: !!question.optional,
             };
           }),
         };
