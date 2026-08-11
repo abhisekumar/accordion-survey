@@ -4,19 +4,19 @@ A modern multi-section survey with accordion questions, rating scales, progress 
 
 ## Features
 
-- Three survey sections with tab navigation
+- Name + email start screen (feels like a real form)
+- Three sections: Survey I, Survey II, Quiz
 - Accordion questions (one open at a time)
 - Mixed question types:
   - Rating (too bad → super)
   - True / False
   - Multiple choice
+  - Multi-select checkboxes (“Select all that apply”)
   - Short text (required or optional)
-- Conditional follow-ups (`showIf`) — e.g. False → ask why
-- Follow-ups auto-open, clear when hidden again
-- Answered state on completed questions
+- Conditional follow-ups (`showIf`) — False → ask why, or Other → explain
+- Quiz mode with correct answers, score %, and Pass/Fail (70%)
+- Follow-ups auto-open and clear when hidden
 - Progress counts only visible required questions
-- Auto-advance after radio answers
-- Quick insights (True/False counts, follow-ups, average rating)
 - Local save in the browser
 - Results summary + JSON download
 

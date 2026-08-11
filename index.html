@@ -6,7 +6,7 @@
     <title>Accordion Survey</title>
     <meta
       name="description"
-      content="A modern accordion survey with section tabs, rating questions, progress tracking, and instant results."
+      content="Modern accordion survey with profile fields, conditional follow-ups, multi-select, and quiz scoring."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,11 +24,11 @@
     <main class="app">
       <header class="header">
         <div>
-          <p class="eyebrow">Feedback form</p>
+          <p class="eyebrow">Feedback + quiz</p>
           <h1>Accordion Survey</h1>
         </div>
         <div class="header-meta">
-          <span id="overallProgress">0 / 12 answered</span>
+          <span id="overallProgress">Start with your details</span>
           <button type="button" id="resetBtn" class="btn ghost">Reset</button>
         </div>
       </header>
@@ -37,52 +37,104 @@
         <div id="progressFill" class="progress-fill"></div>
       </div>
 
-      <nav class="survey-tabs" role="tablist" aria-label="Survey sections">
-        <button type="button" class="tab is-active" role="tab" aria-selected="true" data-survey="0">
-          <span class="tab-index">01</span>
-          Survey I
-          <span class="tab-count" data-count="0">0/4</span>
-        </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" data-survey="1">
-          <span class="tab-index">02</span>
-          Survey II
-          <span class="tab-count" data-count="1">0/4</span>
-        </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" data-survey="2">
-          <span class="tab-index">03</span>
-          Survey III
-          <span class="tab-count" data-count="2">0/4</span>
-        </button>
-      </nav>
-
-      <section id="surveyPanel" class="panel" aria-live="polite">
-        <p id="surveyIntro" class="intro"></p>
-
+      <section id="startPanel" class="panel">
+        <p class="intro">
+          Enter your details to begin. The form includes ratings, True/False, select-all checkboxes,
+          conditional follow-ups, and a short scored quiz.
+        </p>
         <div class="survey-card">
           <div class="survey-card-head">
-            <h2 id="surveyTitle"></h2>
-            <span id="surveyStatus" class="status-pill">In progress</span>
+            <h2>Your details</h2>
+            <span class="status-pill">Required</span>
           </div>
-
-          <div id="questionList" class="question-list"></div>
-
-          <div class="survey-actions">
-            <button type="button" id="prevSurvey" class="btn ghost">Previous</button>
-            <button type="button" id="nextSurvey" class="btn ghost">Next section</button>
-            <button type="button" id="sendBtn" class="btn primary">
-              Send
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                <path d="M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </button>
-          </div>
+          <form id="startForm" class="profile-form" novalidate>
+            <label>
+              Full name
+              <input
+                id="profileName"
+                name="name"
+                type="text"
+                autocomplete="name"
+                required
+                maxlength="80"
+                placeholder="e.g. Abhisek Kumar"
+              />
+            </label>
+            <label>
+              Email
+              <input
+                id="profileEmail"
+                name="email"
+                type="email"
+                autocomplete="email"
+                required
+                maxlength="120"
+                placeholder="you@example.com"
+              />
+            </label>
+            <p id="startError" class="field-error hidden" role="alert"></p>
+            <div class="survey-actions">
+              <button type="submit" class="btn primary">
+                Start survey
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </form>
         </div>
       </section>
 
+      <div id="surveyShell" class="hidden">
+        <nav class="survey-tabs" role="tablist" aria-label="Survey sections">
+          <button type="button" class="tab is-active" role="tab" aria-selected="true" data-survey="0">
+            <span class="tab-index">01</span>
+            Survey I
+            <span class="tab-count" data-count="0">0/4</span>
+          </button>
+          <button type="button" class="tab" role="tab" aria-selected="false" data-survey="1">
+            <span class="tab-index">02</span>
+            Survey II
+            <span class="tab-count" data-count="1">0/4</span>
+          </button>
+          <button type="button" class="tab" role="tab" aria-selected="false" data-survey="2">
+            <span class="tab-index">03</span>
+            Quiz
+            <span class="tab-count" data-count="2">0/4</span>
+          </button>
+        </nav>
+
+        <section id="surveyPanel" class="panel" aria-live="polite">
+          <div class="profile-chip" id="profileChip"></div>
+          <p id="surveyIntro" class="intro"></p>
+
+          <div class="survey-card">
+            <div class="survey-card-head">
+              <h2 id="surveyTitle"></h2>
+              <span id="surveyStatus" class="status-pill">In progress</span>
+            </div>
+
+            <div id="questionList" class="question-list"></div>
+
+            <div class="survey-actions">
+              <button type="button" id="prevSurvey" class="btn ghost">Previous</button>
+              <button type="button" id="nextSurvey" class="btn ghost">Next section</button>
+              <button type="button" id="sendBtn" class="btn primary">
+                Send
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
       <section id="resultsPanel" class="panel results hidden">
         <h2>Thanks — responses saved</h2>
-        <p class="intro">Here’s a quick summary of what you selected across all sections.</p>
+        <p class="intro">Here’s your profile, quiz score, and a summary of every answer.</p>
         <div id="resultsList" class="results-list"></div>
         <div class="survey-actions">
           <button type="button" id="editAgain" class="btn ghost">Edit answers</button>

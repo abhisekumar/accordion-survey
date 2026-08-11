@@ -7,12 +7,14 @@
     { value: "super", label: "super" },
   ];
 
+  const QUIZ_PASS_PERCENT = 70;
+
   const SURVEYS = [
     {
       id: "survey-1",
       title: "Survey I",
       intro:
-        "Basics first. Answer True/False — if you pick False, a follow-up text box appears so you can explain why.",
+        "Basics first. True/False can unlock a follow-up text box. Use select-all where more than one option fits.",
       questions: [
         {
           id: "s1-clear",
@@ -32,9 +34,15 @@
           showIf: { id: "s1-easy", equals: "false" },
         },
         {
-          id: "s1-design",
-          type: "rating",
-          text: "How would you rate the visual design?",
+          id: "s1-topics",
+          type: "multiselect",
+          text: "Which topics matter most to you? (Select all that apply)",
+          options: [
+            { value: "design", label: "Design" },
+            { value: "speed", label: "Speed" },
+            { value: "clarity", label: "Clarity" },
+            { value: "support", label: "Support" },
+          ],
         },
         {
           id: "s1-improve",
@@ -48,7 +56,7 @@
       id: "survey-2",
       title: "Survey II",
       intro:
-        "Usefulness and flow. Conditional follow-ups only appear when needed — for example after a False answer.",
+        "Usefulness and flow. Conditional follow-ups appear only when needed. Multi-select captures overlapping needs.",
       questions: [
         {
           id: "s2-found",
@@ -63,27 +71,33 @@
           showIf: { id: "s2-found", equals: "false" },
         },
         {
-          id: "s2-flow",
-          type: "rating",
-          text: "How smooth was the interaction flow?",
+          id: "s2-channels",
+          type: "multiselect",
+          text: "Where did you hear about this? (Select all that apply)",
+          options: [
+            { value: "search", label: "Search" },
+            { value: "social", label: "Social" },
+            { value: "friend", label: "Friend" },
+            { value: "work", label: "Work" },
+            { value: "other", label: "Other" },
+          ],
+        },
+        {
+          id: "s2-other-note",
+          type: "text",
+          text: "Where else did you hear about it?",
+          placeholder: "Tell us the other source…",
+          showIf: { id: "s2-channels", includes: "other" },
         },
         {
           id: "s2-device",
           type: "choice",
-          text: "Which device did you use?",
+          text: "Which device did you use most?",
           options: [
             { value: "mobile", label: "Mobile" },
             { value: "tablet", label: "Tablet" },
             { value: "desktop", label: "Desktop" },
           ],
-        },
-        {
-          id: "s2-mobile-note",
-          type: "text",
-          text: "Anything awkward on mobile?",
-          placeholder: "Optional note about mobile…",
-          optional: true,
-          showIf: { id: "s2-device", equals: "mobile" },
         },
         {
           id: "s2-expect",
@@ -94,53 +108,77 @@
     },
     {
       id: "survey-3",
-      title: "Survey III",
+      title: "Quiz",
       intro:
-        "Final thoughts. Recommend = False triggers a required reason. Optional comments stay optional.",
+        "Quiz mode: True/False questions are scored. You need " +
+        QUIZ_PASS_PERCENT +
+        "% or higher to pass. Feedback questions stay unscored.",
+      quiz: true,
       questions: [
         {
-          id: "s3-again",
+          id: "q1",
           type: "boolean",
-          text: "Would you use this again?",
+          text: "HTML is used to structure web page content.",
+          correct: "true",
         },
         {
-          id: "s3-again-why",
+          id: "q1-why",
           type: "text",
-          text: "Why might you not use it again?",
-          placeholder: "What would need to change?",
-          showIf: { id: "s3-again", equals: "false" },
+          text: "Why did you choose False?",
+          placeholder: "Optional — what were you thinking?",
+          optional: true,
+          showIf: { id: "q1", equals: "false" },
         },
         {
-          id: "s3-recommend",
+          id: "q2",
           type: "boolean",
-          text: "Would you recommend this to a friend?",
+          text: "CSS stands for Cascading Style Sheets.",
+          correct: "true",
         },
         {
-          id: "s3-recommend-why",
+          id: "q3",
+          type: "boolean",
+          text: "JavaScript can only run on servers, never in browsers.",
+          correct: "false",
+        },
+        {
+          id: "q4",
+          type: "boolean",
+          text: "GitHub Pages can host static HTML/CSS/JS sites.",
+          correct: "true",
+        },
+        {
+          id: "q5",
+          type: "choice",
+          text: "Which format usually makes photos smaller than PNG?",
+          options: [
+            { value: "bmp", label: "BMP" },
+            { value: "webp", label: "WebP" },
+            { value: "raw", label: "RAW" },
+          ],
+          correct: "webp",
+        },
+        {
+          id: "q-comment",
           type: "text",
-          text: "What held you back from recommending it?",
-          placeholder: "Be as specific as you like…",
-          showIf: { id: "s3-recommend", equals: "false" },
-        },
-        {
-          id: "s3-overall",
-          type: "rating",
-          text: "Overall, how was the complete journey?",
-        },
-        {
-          id: "s3-comment",
-          type: "text",
-          text: "Any final comment?",
-          placeholder: "Optional detail is fine…",
+          text: "Any final comment about the quiz?",
+          placeholder: "Optional…",
           optional: true,
         },
       ],
     },
   ];
 
-  const STORAGE_KEY = "accordion-survey-answers-v3";
+  const STORAGE_KEY = "accordion-survey-state-v4";
 
   const els = {
+    startPanel: document.getElementById("startPanel"),
+    startForm: document.getElementById("startForm"),
+    profileName: document.getElementById("profileName"),
+    profileEmail: document.getElementById("profileEmail"),
+    startError: document.getElementById("startError"),
+    surveyShell: document.getElementById("surveyShell"),
+    profileChip: document.getElementById("profileChip"),
     tabs: Array.from(document.querySelectorAll(".tab")),
     counts: Array.from(document.querySelectorAll(".tab-count")),
     intro: document.getElementById("surveyIntro"),
@@ -162,33 +200,55 @@
 
   let activeSurvey = 0;
   let openQuestionId = null;
-  let answers = loadAnswers();
+  let started = false;
+  let profile = { name: "", email: "" };
+  let answers = {};
 
-  function loadAnswers() {
+  loadState();
+
+  function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      profile = data.profile || profile;
+      answers = data.answers || {};
+      started = !!data.started;
+      activeSurvey = Number(data.activeSurvey) || 0;
     } catch (error) {
-      return {};
+      // ignore bad storage
     }
   }
 
-  function saveAnswers() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
-  }
-
-  function answerKey(questionId) {
-    return questionId;
+  function saveState() {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        started: started,
+        profile: profile,
+        answers: answers,
+        activeSurvey: activeSurvey,
+      })
+    );
   }
 
   function getAnswerById(questionId) {
-    const value = answers[answerKey(questionId)];
+    const value = answers[questionId];
     return value === undefined || value === null ? null : value;
+  }
+
+  function asArray(value) {
+    if (Array.isArray(value)) return value;
+    if (value === null || value === undefined || value === "") return [];
+    return [value];
   }
 
   function isQuestionVisible(surveyIndex, question) {
     if (!question.showIf) return true;
     const parentValue = getAnswerById(question.showIf.id);
+    if (question.showIf.includes !== undefined) {
+      return asArray(parentValue).indexOf(question.showIf.includes) !== -1;
+    }
     return parentValue === question.showIf.equals;
   }
 
@@ -204,12 +264,24 @@
     if (question.type === "text") {
       return typeof value === "string" && value.trim().length > 0;
     }
+    if (question.type === "multiselect") {
+      return asArray(value).length > 0;
+    }
     return value !== null && value !== "";
+  }
+
+  function optionLabel(question, value) {
+    const found = (question.options || []).find(function (item) {
+      return item.value === value;
+    });
+    return found ? found.label : value;
   }
 
   function displayAnswerFor(question) {
     const value = getAnswerById(question.id);
-    if (value === null || value === "") return null;
+    if (value === null || value === "" || (Array.isArray(value) && !value.length)) {
+      return null;
+    }
 
     if (question.type === "rating") {
       const found = RATINGS.find(function (item) {
@@ -223,10 +295,15 @@
     }
 
     if (question.type === "choice") {
-      const found = (question.options || []).find(function (item) {
-        return item.value === value;
-      });
-      return found ? found.label : value;
+      return optionLabel(question, value);
+    }
+
+    if (question.type === "multiselect") {
+      return asArray(value)
+        .map(function (item) {
+          return optionLabel(question, item);
+        })
+        .join(", ");
     }
 
     if (question.type === "text") {
@@ -270,6 +347,43 @@
     }, 0);
   }
 
+  function scoredQuestions() {
+    const list = [];
+    SURVEYS.forEach(function (survey, surveyIndex) {
+      if (!survey.quiz) return;
+      visibleQuestions(surveyIndex).forEach(function (question) {
+        if (question.correct !== undefined) list.push(question);
+      });
+    });
+    return list;
+  }
+
+  function gradeQuiz() {
+    const scored = scoredQuestions();
+    let correct = 0;
+    const details = scored.map(function (question) {
+      const value = getAnswerById(question.id);
+      const ok = String(value) === String(question.correct);
+      if (ok) correct += 1;
+      return {
+        id: question.id,
+        text: question.text,
+        value: value,
+        correctAnswer: question.correct,
+        isCorrect: ok,
+      };
+    });
+    const total = scored.length;
+    const percent = total ? Math.round((correct / total) * 100) : 0;
+    return {
+      correct: correct,
+      total: total,
+      percent: percent,
+      passed: percent >= QUIZ_PASS_PERCENT,
+      details: details,
+    };
+  }
+
   function showToast(message) {
     const existing = document.querySelector(".toast");
     if (existing) existing.remove();
@@ -280,6 +394,36 @@
     window.setTimeout(function () {
       toast.remove();
     }, 2200);
+  }
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function updateProfileChip() {
+    els.profileChip.textContent = profile.name + " · " + profile.email;
+  }
+
+  function showStart() {
+    started = false;
+    saveState();
+    els.startPanel.classList.remove("hidden");
+    els.surveyShell.classList.add("hidden");
+    els.resultsPanel.classList.add("hidden");
+    els.progressFill.style.width = "0%";
+    els.overallProgress.textContent = "Start with your details";
+    els.profileName.value = profile.name || "";
+    els.profileEmail.value = profile.email || "";
+  }
+
+  function showSurvey() {
+    started = true;
+    saveState();
+    els.startPanel.classList.add("hidden");
+    els.surveyShell.classList.remove("hidden");
+    els.resultsPanel.classList.add("hidden");
+    updateProfileChip();
+    renderSurvey();
   }
 
   function updateProgress() {
@@ -353,13 +497,47 @@
     );
   }
 
+  function renderMultiSelect(question, answer) {
+    const selected = asArray(answer);
+    return (
+      '<div class="choice-group multi" role="group" aria-label="' +
+      question.text.replace(/"/g, "&quot;") +
+      '">' +
+      (question.options || [])
+        .map(function (option) {
+          const id = question.id + "-" + option.value;
+          const checked = selected.indexOf(option.value) !== -1 ? " checked" : "";
+          return (
+            '<label for="' +
+            id +
+            '">' +
+            '<input type="checkbox" data-multi-id="' +
+            question.id +
+            '" id="' +
+            id +
+            '" value="' +
+            option.value +
+            '"' +
+            checked +
+            " />" +
+            "<span>" +
+            option.label +
+            "</span>" +
+            "</label>"
+          );
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
   function renderInput(question, answer) {
     if (question.type === "text") {
       const id = question.id + "-text";
       return (
         '<div class="text-field">' +
         (question.showIf
-          ? '<p class="followup-note">Shown because your previous answer matched this follow-up.</p>'
+          ? '<p class="followup-note">Shown because your previous answer unlocked this follow-up.</p>'
           : "") +
         '<label class="sr-only" for="' +
         id +
@@ -385,15 +563,24 @@
       );
     }
 
+    if (question.type === "multiselect") {
+      return (
+        '<p class="multi-hint">Select all that apply</p>' +
+        renderMultiSelect(question, answer)
+      );
+    }
+
     return renderChoiceGroup(question, answer);
   }
 
   function typeBadge(question) {
     if (question.showIf) return "Follow-up";
+    if (question.correct !== undefined) return "Quiz";
     const labels = {
       rating: "Rating",
       boolean: "True / False",
       choice: "Choice",
+      multiselect: "Select all",
       text: "Text",
     };
     return labels[question.type] || question.type;
@@ -417,7 +604,6 @@
   }
 
   function renderQuestions() {
-    const survey = SURVEYS[activeSurvey];
     const visible = visibleQuestions(activeSurvey);
     els.list.innerHTML = "";
     ensureOpenQuestion();
@@ -430,7 +616,8 @@
       item.className =
         "question" +
         (isOpen ? " is-open" : "") +
-        (question.showIf ? " is-followup" : "");
+        (question.showIf ? " is-followup" : "") +
+        (question.correct !== undefined ? " is-quiz" : "");
 
       item.innerHTML =
         '<button type="button" class="question-toggle" data-open-id="' +
@@ -441,6 +628,7 @@
         '<span class="question-title">' +
         '<span class="type-badge' +
         (question.showIf ? " followup" : "") +
+        (question.correct !== undefined ? " quiz" : "") +
         '">' +
         typeBadge(question) +
         "</span>" +
@@ -461,15 +649,11 @@
 
       els.list.appendChild(item);
     });
-
-    if (!visible.length) {
-      els.list.innerHTML = '<p class="empty-state">No questions in this section.</p>';
-    }
   }
 
   function renderSurvey() {
     clearHiddenAnswers(activeSurvey);
-    saveAnswers();
+    saveState();
 
     const survey = SURVEYS[activeSurvey];
     els.intro.textContent = survey.intro;
@@ -512,9 +696,9 @@
   }
 
   function setAnswer(questionId, value, shouldAdvance) {
-    answers[answerKey(questionId)] = value;
+    answers[questionId] = value;
     clearHiddenAnswers(activeSurvey);
-    saveAnswers();
+    saveState();
 
     const followUp = firstFollowUpUnlocked(questionId);
     if (followUp) {
@@ -536,8 +720,10 @@
     SURVEYS.forEach(function (survey, surveyIndex) {
       visibleQuestions(surveyIndex).forEach(function (question) {
         const value = getAnswerById(question.id);
-        if (question.showIf && value) followUps += 1;
-        if (question.type === "boolean") {
+        if (question.showIf && value && !(Array.isArray(value) && !value.length)) {
+          followUps += 1;
+        }
+        if (question.type === "boolean" && question.correct === undefined) {
           if (value === "true") trueCount += 1;
           if (value === "false") falseCount += 1;
         }
@@ -558,20 +744,57 @@
       falseCount: falseCount,
       followUps: followUps,
       avgRating: ratingCount ? (ratingSum / ratingCount).toFixed(1) + " / 5" : "—",
+      quiz: gradeQuiz(),
     };
   }
 
   function showResults() {
-    els.surveyPanel.classList.add("hidden");
+    els.startPanel.classList.add("hidden");
+    els.surveyShell.classList.add("hidden");
     els.resultsPanel.classList.remove("hidden");
     els.resultsList.innerHTML = "";
 
     const insights = buildInsights();
+    const quiz = insights.quiz;
+
+    const profileCard = document.createElement("div");
+    profileCard.className = "result-group";
+    profileCard.innerHTML =
+      "<h3>Participant</h3><ul>" +
+      "<li><span>Name</span><strong>" +
+      profile.name.replace(/</g, "&lt;") +
+      "</strong></li>" +
+      "<li><span>Email</span><strong>" +
+      profile.email.replace(/</g, "&lt;") +
+      "</strong></li>" +
+      "</ul>";
+    els.resultsList.appendChild(profileCard);
+
+    const quizCard = document.createElement("div");
+    quizCard.className =
+      "result-group insights " + (quiz.passed ? "pass" : "fail");
+    quizCard.innerHTML =
+      "<h3>Quiz score</h3><ul>" +
+      "<li><span>Result</span><strong>" +
+      (quiz.passed ? "PASS" : "FAIL") +
+      "</strong></li>" +
+      "<li><span>Score</span><strong>" +
+      quiz.correct +
+      " / " +
+      quiz.total +
+      " (" +
+      quiz.percent +
+      "%)</strong></li>" +
+      "<li><span>Pass mark</span><strong>" +
+      QUIZ_PASS_PERCENT +
+      "%</strong></li>" +
+      "</ul>";
+    els.resultsList.appendChild(quizCard);
+
     const insight = document.createElement("div");
     insight.className = "result-group insights";
     insight.innerHTML =
-      "<h3>Quick insights</h3>" +
-      "<ul>" +
+      "<h3>Survey insights</h3><ul>" +
       "<li><span>True answers</span><strong>" +
       insights.trueCount +
       "</strong></li>" +
@@ -596,6 +819,13 @@
           const value = getAnswerById(question.id);
           const fullText =
             question.type === "text" && value ? String(value).trim() : shown;
+          let mark = "";
+          if (question.correct !== undefined) {
+            mark =
+              String(value) === String(question.correct)
+                ? ' <em class="ok">✓</em>'
+                : ' <em class="bad">✗</em>';
+          }
           return (
             "<li><span>" +
             (index + 1) +
@@ -606,6 +836,7 @@
             (fullText || "—").replace(/"/g, "&quot;") +
             '">' +
             (fullText || (question.optional ? "Skipped" : "—")) +
+            mark +
             "</strong></li>"
           );
         })
@@ -615,17 +846,32 @@
     });
   }
 
-  function hideResults() {
-    els.resultsPanel.classList.add("hidden");
-    els.surveyPanel.classList.remove("hidden");
-  }
+  els.startForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    const name = els.profileName.value.trim();
+    const email = els.profileEmail.value.trim();
+    if (name.length < 2) {
+      els.startError.textContent = "Please enter your full name.";
+      els.startError.classList.remove("hidden");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      els.startError.textContent = "Please enter a valid email address.";
+      els.startError.classList.remove("hidden");
+      return;
+    }
+    els.startError.classList.add("hidden");
+    profile = { name: name, email: email };
+    activeSurvey = 0;
+    openQuestionId = null;
+    showSurvey();
+  });
 
   els.tabs.forEach(function (tab) {
     tab.addEventListener("click", function () {
       activeSurvey = Number(tab.getAttribute("data-survey"));
       openQuestionId = null;
-      hideResults();
-      renderSurvey();
+      showSurvey();
     });
   });
 
@@ -639,16 +885,33 @@
 
   els.list.addEventListener("change", function (event) {
     const input = event.target;
-    if (!(input instanceof HTMLInputElement) || input.type !== "radio") return;
-    setAnswer(input.name, input.value, true);
+    if (!(input instanceof HTMLInputElement)) return;
+
+    if (input.type === "radio") {
+      setAnswer(input.name, input.value, true);
+      return;
+    }
+
+    if (input.type === "checkbox" && input.hasAttribute("data-multi-id")) {
+      const questionId = input.getAttribute("data-multi-id");
+      const selected = Array.from(
+        els.list.querySelectorAll('input[data-multi-id="' + questionId + '"]:checked')
+      ).map(function (node) {
+        return node.value;
+      });
+      setAnswer(questionId, selected, false);
+      const followUp = firstFollowUpUnlocked(questionId);
+      if (followUp) openQuestionId = followUp.id;
+      renderSurvey();
+    }
   });
 
   els.list.addEventListener("input", function (event) {
     const area = event.target;
     if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text-id")) return;
     const id = area.getAttribute("data-text-id");
-    answers[answerKey(id)] = area.value;
-    saveAnswers();
+    answers[id] = area.value;
+    saveState();
     updateProgress();
     const meta = area.parentElement && area.parentElement.querySelector(".text-meta span:last-child");
     if (meta) meta.textContent = area.value.trim().length + "/280";
@@ -687,7 +950,7 @@
     SURVEYS.forEach(function (_, index) {
       clearHiddenAnswers(index);
     });
-    saveAnswers();
+    saveState();
 
     const unanswered = totalRequired() - totalRequiredAnswered();
     if (unanswered > 0) {
@@ -699,8 +962,7 @@
         if (missing) {
           activeSurvey = s;
           openQuestionId = missing.id;
-          hideResults();
-          renderSurvey();
+          showSurvey();
           break;
         }
       }
@@ -712,27 +974,35 @@
 
   els.resetBtn.addEventListener("click", function () {
     answers = {};
-    saveAnswers();
+    profile = { name: "", email: "" };
     activeSurvey = 0;
     openQuestionId = null;
-    hideResults();
-    renderSurvey();
-    showToast("Responses cleared.");
+    saveState();
+    showStart();
+    showToast("Form cleared.");
   });
 
   els.editAgain.addEventListener("click", function () {
-    hideResults();
-    renderSurvey();
+    showSurvey();
   });
 
   els.downloadJson.addEventListener("click", function () {
+    const insights = buildInsights();
     const payload = {
       submittedAt: new Date().toISOString(),
-      insights: buildInsights(),
+      profile: profile,
+      quiz: insights.quiz,
+      insights: {
+        trueCount: insights.trueCount,
+        falseCount: insights.falseCount,
+        followUps: insights.followUps,
+        avgRating: insights.avgRating,
+      },
       surveys: SURVEYS.map(function (survey, surveyIndex) {
         return {
           id: survey.id,
           title: survey.title,
+          quiz: !!survey.quiz,
           answers: visibleQuestions(surveyIndex).map(function (question) {
             const value = getAnswerById(question.id);
             return {
@@ -744,6 +1014,11 @@
               optional: !!question.optional,
               followUp: !!question.showIf,
               showIf: question.showIf || null,
+              correct: question.correct,
+              isCorrect:
+                question.correct !== undefined
+                  ? String(value) === String(question.correct)
+                  : null,
             };
           }),
         };
@@ -763,5 +1038,9 @@
     URL.revokeObjectURL(url);
   });
 
-  renderSurvey();
+  if (started && profile.name && profile.email) {
+    showSurvey();
+  } else {
+    showStart();
+  }
 })();

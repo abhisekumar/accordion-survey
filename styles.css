@@ -244,6 +244,102 @@ body {
   background: #ffe4e6;
 }
 
+.type-badge.quiz {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.profile-form {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.profile-form input {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  outline: none;
+}
+
+.profile-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.profile-chip {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.multi-hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.choice-group.multi {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choice-group.multi input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.question.is-quiz {
+  border-color: #f6d787;
+}
+
+.result-group.pass {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.result-group.fail {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.result-group em.ok {
+  color: #15803d;
+  font-style: normal;
+  margin-left: 4px;
+}
+
+.result-group em.bad {
+  color: #b91c1c;
+  font-style: normal;
+  margin-left: 4px;
+}
+
 .question.is-followup {
   margin-left: 12px;
   border-color: #f0c4cb;
