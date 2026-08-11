@@ -12,21 +12,32 @@
       id: "survey-1",
       title: "Survey I",
       intro:
-        "Basics first. This section mixes ratings and True/False so you can capture both opinion and clear yes/no signals.",
+        "Basics first. Answer True/False — if you pick False, a follow-up text box appears so you can explain why.",
       questions: [
         {
+          id: "s1-clear",
           type: "rating",
           text: "How clear was the overall experience?",
         },
         {
+          id: "s1-easy",
           type: "boolean",
           text: "Was the survey easy to understand?",
         },
         {
+          id: "s1-easy-why",
+          type: "text",
+          text: "What made it hard to understand?",
+          placeholder: "Tell us what confused you…",
+          showIf: { id: "s1-easy", equals: "false" },
+        },
+        {
+          id: "s1-design",
           type: "rating",
           text: "How would you rate the visual design?",
         },
         {
+          id: "s1-improve",
           type: "text",
           text: "What is one thing we should improve?",
           placeholder: "Type a short suggestion…",
@@ -37,17 +48,27 @@
       id: "survey-2",
       title: "Survey II",
       intro:
-        "Usefulness and flow. True/False catches blockers quickly; ratings show strength; text captures detail.",
+        "Usefulness and flow. Conditional follow-ups only appear when needed — for example after a False answer.",
       questions: [
         {
+          id: "s2-found",
           type: "boolean",
           text: "Did you find the main feature you needed?",
         },
         {
+          id: "s2-found-why",
+          type: "text",
+          text: "What were you looking for?",
+          placeholder: "Describe the missing feature…",
+          showIf: { id: "s2-found", equals: "false" },
+        },
+        {
+          id: "s2-flow",
           type: "rating",
           text: "How smooth was the interaction flow?",
         },
         {
+          id: "s2-device",
           type: "choice",
           text: "Which device did you use?",
           options: [
@@ -57,6 +78,15 @@
           ],
         },
         {
+          id: "s2-mobile-note",
+          type: "text",
+          text: "Anything awkward on mobile?",
+          placeholder: "Optional note about mobile…",
+          optional: true,
+          showIf: { id: "s2-device", equals: "mobile" },
+        },
+        {
+          id: "s2-expect",
           type: "rating",
           text: "How well did this meet your expectations?",
         },
@@ -66,21 +96,39 @@
       id: "survey-3",
       title: "Survey III",
       intro:
-        "Final thoughts. Finish with confidence checks and open feedback, then send for a full summary.",
+        "Final thoughts. Recommend = False triggers a required reason. Optional comments stay optional.",
       questions: [
         {
+          id: "s3-again",
           type: "boolean",
           text: "Would you use this again?",
         },
         {
+          id: "s3-again-why",
+          type: "text",
+          text: "Why might you not use it again?",
+          placeholder: "What would need to change?",
+          showIf: { id: "s3-again", equals: "false" },
+        },
+        {
+          id: "s3-recommend",
           type: "boolean",
           text: "Would you recommend this to a friend?",
         },
         {
+          id: "s3-recommend-why",
+          type: "text",
+          text: "What held you back from recommending it?",
+          placeholder: "Be as specific as you like…",
+          showIf: { id: "s3-recommend", equals: "false" },
+        },
+        {
+          id: "s3-overall",
           type: "rating",
           text: "Overall, how was the complete journey?",
         },
         {
+          id: "s3-comment",
           type: "text",
           text: "Any final comment?",
           placeholder: "Optional detail is fine…",
@@ -90,7 +138,7 @@
     },
   ];
 
-  const STORAGE_KEY = "accordion-survey-answers-v2";
+  const STORAGE_KEY = "accordion-survey-answers-v3";
 
   const els = {
     tabs: Array.from(document.querySelectorAll(".tab")),
@@ -113,7 +161,7 @@
   };
 
   let activeSurvey = 0;
-  let openQuestion = 0;
+  let openQuestionId = null;
   let answers = loadAnswers();
 
   function loadAnswers() {
@@ -129,18 +177,29 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
   }
 
-  function answerKey(surveyIndex, questionIndex) {
-    return SURVEYS[surveyIndex].id + ":" + questionIndex;
+  function answerKey(questionId) {
+    return questionId;
   }
 
-  function getAnswer(surveyIndex, questionIndex) {
-    const value = answers[answerKey(surveyIndex, questionIndex)];
+  function getAnswerById(questionId) {
+    const value = answers[answerKey(questionId)];
     return value === undefined || value === null ? null : value;
   }
 
-  function isAnswered(surveyIndex, questionIndex) {
-    const question = SURVEYS[surveyIndex].questions[questionIndex];
-    const value = getAnswer(surveyIndex, questionIndex);
+  function isQuestionVisible(surveyIndex, question) {
+    if (!question.showIf) return true;
+    const parentValue = getAnswerById(question.showIf.id);
+    return parentValue === question.showIf.equals;
+  }
+
+  function visibleQuestions(surveyIndex) {
+    return SURVEYS[surveyIndex].questions.filter(function (question) {
+      return isQuestionVisible(surveyIndex, question);
+    });
+  }
+
+  function isAnsweredQuestion(question) {
+    const value = getAnswerById(question.id);
     if (question.optional) return true;
     if (question.type === "text") {
       return typeof value === "string" && value.trim().length > 0;
@@ -148,9 +207,8 @@
     return value !== null && value !== "";
   }
 
-  function displayAnswer(surveyIndex, questionIndex) {
-    const question = SURVEYS[surveyIndex].questions[questionIndex];
-    const value = getAnswer(surveyIndex, questionIndex);
+  function displayAnswerFor(question) {
+    const value = getAnswerById(question.id);
     if (value === null || value === "") return null;
 
     if (question.type === "rating") {
@@ -179,27 +237,24 @@
     return String(value);
   }
 
-  function countAnswered(surveyIndex) {
-    return SURVEYS[surveyIndex].questions.reduce(function (total, _, index) {
-      const question = SURVEYS[surveyIndex].questions[index];
-      if (question.optional) {
-        const value = getAnswer(surveyIndex, index);
-        return total + (value && String(value).trim() ? 1 : 0);
+  function clearHiddenAnswers(surveyIndex) {
+    SURVEYS[surveyIndex].questions.forEach(function (question) {
+      if (!isQuestionVisible(surveyIndex, question) && answers[question.id] != null) {
+        delete answers[question.id];
       }
-      return total + (isAnswered(surveyIndex, index) ? 1 : 0);
-    }, 0);
+    });
   }
 
   function countRequired(surveyIndex) {
-    return SURVEYS[surveyIndex].questions.filter(function (question) {
+    return visibleQuestions(surveyIndex).filter(function (question) {
       return !question.optional;
     }).length;
   }
 
   function countRequiredAnswered(surveyIndex) {
-    return SURVEYS[surveyIndex].questions.reduce(function (total, question, index) {
+    return visibleQuestions(surveyIndex).reduce(function (total, question) {
       if (question.optional) return total;
-      return total + (isAnswered(surveyIndex, index) ? 1 : 0);
+      return total + (isAnsweredQuestion(question) ? 1 : 0);
     }, 0);
   }
 
@@ -245,8 +300,8 @@
     els.status.classList.toggle("done", sectionDone);
   }
 
-  function renderChoiceGroup(question, surveyIndex, questionIndex, answer) {
-    const name = SURVEYS[surveyIndex].id + "-q" + questionIndex;
+  function renderChoiceGroup(question, answer) {
+    const name = question.id;
     const options =
       question.type === "boolean"
         ? [
@@ -298,11 +353,14 @@
     );
   }
 
-  function renderInput(question, surveyIndex, questionIndex, answer) {
+  function renderInput(question, answer) {
     if (question.type === "text") {
-      const id = SURVEYS[surveyIndex].id + "-q" + questionIndex + "-text";
+      const id = question.id + "-text";
       return (
         '<div class="text-field">' +
+        (question.showIf
+          ? '<p class="followup-note">Shown because your previous answer matched this follow-up.</p>'
+          : "") +
         '<label class="sr-only" for="' +
         id +
         '">' +
@@ -310,8 +368,8 @@
         "</label>" +
         '<textarea id="' +
         id +
-        '" data-text="' +
-        questionIndex +
+        '" data-text-id="' +
+        question.id +
         '" rows="3" maxlength="280" placeholder="' +
         (question.placeholder || "Type your answer…").replace(/"/g, "&quot;") +
         '">' +
@@ -327,41 +385,66 @@
       );
     }
 
-    return renderChoiceGroup(question, surveyIndex, questionIndex, answer);
+    return renderChoiceGroup(question, answer);
   }
 
-  function typeBadge(type) {
+  function typeBadge(question) {
+    if (question.showIf) return "Follow-up";
     const labels = {
       rating: "Rating",
       boolean: "True / False",
       choice: "Choice",
       text: "Text",
     };
-    return labels[type] || type;
+    return labels[question.type] || question.type;
+  }
+
+  function ensureOpenQuestion() {
+    const visible = visibleQuestions(activeSurvey);
+    if (!visible.length) {
+      openQuestionId = null;
+      return;
+    }
+    const stillVisible = visible.some(function (question) {
+      return question.id === openQuestionId;
+    });
+    if (!stillVisible) {
+      const firstUnanswered = visible.find(function (question) {
+        return !isAnsweredQuestion(question);
+      });
+      openQuestionId = (firstUnanswered || visible[0]).id;
+    }
   }
 
   function renderQuestions() {
     const survey = SURVEYS[activeSurvey];
+    const visible = visibleQuestions(activeSurvey);
     els.list.innerHTML = "";
+    ensureOpenQuestion();
 
-    survey.questions.forEach(function (question, index) {
-      const answer = getAnswer(activeSurvey, index);
-      const shown = displayAnswer(activeSurvey, index);
-      const isOpen = openQuestion === index;
+    visible.forEach(function (question, visibleIndex) {
+      const answer = getAnswerById(question.id);
+      const shown = displayAnswerFor(question);
+      const isOpen = openQuestionId === question.id;
       const item = document.createElement("article");
-      item.className = "question" + (isOpen ? " is-open" : "");
+      item.className =
+        "question" +
+        (isOpen ? " is-open" : "") +
+        (question.showIf ? " is-followup" : "");
 
       item.innerHTML =
-        '<button type="button" class="question-toggle" data-open="' +
-        index +
+        '<button type="button" class="question-toggle" data-open-id="' +
+        question.id +
         '" aria-expanded="' +
         String(isOpen) +
         '">' +
         '<span class="question-title">' +
-        '<span class="type-badge">' +
-        typeBadge(question.type) +
+        '<span class="type-badge' +
+        (question.showIf ? " followup" : "") +
+        '">' +
+        typeBadge(question) +
         "</span>" +
-        (index + 1) +
+        (visibleIndex + 1) +
         ". " +
         question.text +
         "</span>" +
@@ -373,14 +456,21 @@
         '<svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         "</button>" +
         '<div class="question-body">' +
-        renderInput(question, activeSurvey, index, answer) +
+        renderInput(question, answer) +
         "</div>";
 
       els.list.appendChild(item);
     });
+
+    if (!visible.length) {
+      els.list.innerHTML = '<p class="empty-state">No questions in this section.</p>';
+    }
   }
 
   function renderSurvey() {
+    clearHiddenAnswers(activeSurvey);
+    saveAnswers();
+
     const survey = SURVEYS[activeSurvey];
     els.intro.textContent = survey.intro;
     els.title.textContent = survey.title;
@@ -396,25 +486,43 @@
     els.nextSurvey.textContent =
       activeSurvey === SURVEYS.length - 1 ? "Review" : "Next section";
 
-    if (openQuestion < 0 || openQuestion >= survey.questions.length) {
-      openQuestion = 0;
-    }
-
     renderQuestions();
     updateProgress();
   }
 
-  function advanceFrom(questionIndex) {
-    const nextUnanswered = SURVEYS[activeSurvey].questions.findIndex(function (question, index) {
-      return index > questionIndex && !isAnswered(activeSurvey, index);
+  function advanceFrom(questionId) {
+    const visible = visibleQuestions(activeSurvey);
+    const currentIndex = visible.findIndex(function (question) {
+      return question.id === questionId;
     });
-    if (nextUnanswered !== -1) openQuestion = nextUnanswered;
+    const nextUnanswered = visible.find(function (question, index) {
+      return index > currentIndex && !isAnsweredQuestion(question);
+    });
+    if (nextUnanswered) openQuestionId = nextUnanswered.id;
   }
 
-  function setAnswer(questionIndex, value, shouldAdvance) {
-    answers[answerKey(activeSurvey, questionIndex)] = value;
+  function firstFollowUpUnlocked(parentId) {
+    return SURVEYS[activeSurvey].questions.find(function (question) {
+      return (
+        question.showIf &&
+        question.showIf.id === parentId &&
+        isQuestionVisible(activeSurvey, question)
+      );
+    });
+  }
+
+  function setAnswer(questionId, value, shouldAdvance) {
+    answers[answerKey(questionId)] = value;
+    clearHiddenAnswers(activeSurvey);
     saveAnswers();
-    if (shouldAdvance) advanceFrom(questionIndex);
+
+    const followUp = firstFollowUpUnlocked(questionId);
+    if (followUp) {
+      openQuestionId = followUp.id;
+    } else if (shouldAdvance) {
+      advanceFrom(questionId);
+    }
+
     renderSurvey();
   }
 
@@ -423,10 +531,12 @@
     let falseCount = 0;
     let ratingSum = 0;
     let ratingCount = 0;
+    let followUps = 0;
 
     SURVEYS.forEach(function (survey, surveyIndex) {
-      survey.questions.forEach(function (question, questionIndex) {
-        const value = getAnswer(surveyIndex, questionIndex);
+      visibleQuestions(surveyIndex).forEach(function (question) {
+        const value = getAnswerById(question.id);
+        if (question.showIf && value) followUps += 1;
         if (question.type === "boolean") {
           if (value === "true") trueCount += 1;
           if (value === "false") falseCount += 1;
@@ -446,6 +556,7 @@
     return {
       trueCount: trueCount,
       falseCount: falseCount,
+      followUps: followUps,
       avgRating: ratingCount ? (ratingSum / ratingCount).toFixed(1) + " / 5" : "—",
     };
   }
@@ -467,6 +578,9 @@
       "<li><span>False answers</span><strong>" +
       insights.falseCount +
       "</strong></li>" +
+      "<li><span>Follow-ups answered</span><strong>" +
+      insights.followUps +
+      "</strong></li>" +
       "<li><span>Average rating</span><strong>" +
       insights.avgRating +
       "</strong></li>" +
@@ -476,16 +590,17 @@
     SURVEYS.forEach(function (survey, surveyIndex) {
       const group = document.createElement("div");
       group.className = "result-group";
-      const items = survey.questions
-        .map(function (question, questionIndex) {
-          const shown = displayAnswer(surveyIndex, questionIndex);
-          const value = getAnswer(surveyIndex, questionIndex);
+      const items = visibleQuestions(surveyIndex)
+        .map(function (question, index) {
+          const shown = displayAnswerFor(question);
+          const value = getAnswerById(question.id);
           const fullText =
             question.type === "text" && value ? String(value).trim() : shown;
           return (
             "<li><span>" +
-            (questionIndex + 1) +
+            (index + 1) +
             ". " +
+            (question.showIf ? "[Follow-up] " : "") +
             question.text +
             '</span><strong title="' +
             (fullText || "—").replace(/"/g, "&quot;") +
@@ -508,58 +623,60 @@
   els.tabs.forEach(function (tab) {
     tab.addEventListener("click", function () {
       activeSurvey = Number(tab.getAttribute("data-survey"));
-      openQuestion = 0;
+      openQuestionId = null;
       hideResults();
       renderSurvey();
     });
   });
 
   els.list.addEventListener("click", function (event) {
-    const toggle = event.target.closest("[data-open]");
+    const toggle = event.target.closest("[data-open-id]");
     if (!toggle) return;
-    const index = Number(toggle.getAttribute("data-open"));
-    openQuestion = openQuestion === index ? -1 : index;
+    const id = toggle.getAttribute("data-open-id");
+    openQuestionId = openQuestionId === id ? null : id;
     renderQuestions();
   });
 
   els.list.addEventListener("change", function (event) {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || input.type !== "radio") return;
-    const match = input.name.match(/-q(\d+)$/);
-    if (!match) return;
-    setAnswer(Number(match[1]), input.value, true);
+    setAnswer(input.name, input.value, true);
   });
 
   els.list.addEventListener("input", function (event) {
     const area = event.target;
-    if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text")) return;
-    const index = Number(area.getAttribute("data-text"));
-    answers[answerKey(activeSurvey, index)] = area.value;
+    if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text-id")) return;
+    const id = area.getAttribute("data-text-id");
+    answers[answerKey(id)] = area.value;
     saveAnswers();
     updateProgress();
     const meta = area.parentElement && area.parentElement.querySelector(".text-meta span:last-child");
     if (meta) meta.textContent = area.value.trim().length + "/280";
   });
 
-  els.list.addEventListener("blur", function (event) {
-    const area = event.target;
-    if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text")) return;
-    const index = Number(area.getAttribute("data-text"));
-    if (area.value.trim()) advanceFrom(index);
-    renderSurvey();
-  }, true);
+  els.list.addEventListener(
+    "blur",
+    function (event) {
+      const area = event.target;
+      if (!(area instanceof HTMLTextAreaElement) || !area.hasAttribute("data-text-id")) return;
+      const id = area.getAttribute("data-text-id");
+      if (area.value.trim()) advanceFrom(id);
+      renderSurvey();
+    },
+    true
+  );
 
   els.prevSurvey.addEventListener("click", function () {
     if (activeSurvey === 0) return;
     activeSurvey -= 1;
-    openQuestion = 0;
+    openQuestionId = null;
     renderSurvey();
   });
 
   els.nextSurvey.addEventListener("click", function () {
     if (activeSurvey < SURVEYS.length - 1) {
       activeSurvey += 1;
-      openQuestion = 0;
+      openQuestionId = null;
       renderSurvey();
       return;
     }
@@ -567,16 +684,21 @@
   });
 
   els.sendBtn.addEventListener("click", function () {
+    SURVEYS.forEach(function (_, index) {
+      clearHiddenAnswers(index);
+    });
+    saveAnswers();
+
     const unanswered = totalRequired() - totalRequiredAnswered();
     if (unanswered > 0) {
       showToast("Complete required questions first (" + unanswered + " left).");
       for (let s = 0; s < SURVEYS.length; s += 1) {
-        const missing = SURVEYS[s].questions.findIndex(function (question, q) {
-          return !question.optional && !isAnswered(s, q);
+        const missing = visibleQuestions(s).find(function (question) {
+          return !question.optional && !isAnsweredQuestion(question);
         });
-        if (missing !== -1) {
+        if (missing) {
           activeSurvey = s;
-          openQuestion = missing;
+          openQuestionId = missing.id;
           hideResults();
           renderSurvey();
           break;
@@ -592,7 +714,7 @@
     answers = {};
     saveAnswers();
     activeSurvey = 0;
-    openQuestion = 0;
+    openQuestionId = null;
     hideResults();
     renderSurvey();
     showToast("Responses cleared.");
@@ -611,14 +733,17 @@
         return {
           id: survey.id,
           title: survey.title,
-          answers: survey.questions.map(function (question, questionIndex) {
-            const value = getAnswer(surveyIndex, questionIndex);
+          answers: visibleQuestions(surveyIndex).map(function (question) {
+            const value = getAnswerById(question.id);
             return {
+              id: question.id,
               type: question.type,
               question: question.text,
               value: value,
-              label: displayAnswer(surveyIndex, questionIndex),
+              label: displayAnswerFor(question),
               optional: !!question.optional,
+              followUp: !!question.showIf,
+              showIf: question.showIf || null,
             };
           }),
         };
