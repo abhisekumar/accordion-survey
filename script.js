@@ -405,27 +405,29 @@
       const params = new URLSearchParams(window.location.search);
       const name = (params.get("name") || "").trim();
       const email = (params.get("email") || "").trim();
-      let changed = false;
+
+      if (!name && !email) return false;
 
       if (name) {
         profile.name = name;
         els.profileName.value = name;
-        changed = true;
       }
       if (email) {
         profile.email = email;
         els.profileEmail.value = email;
-        changed = true;
       }
 
-      if (!changed) return false;
+      // URL params win over any older saved profile.
+      saveState();
 
-      // Clean the address bar so refresh doesn't keep stale params confusing.
       if (window.history && window.history.replaceState) {
         window.history.replaceState({}, "", window.location.pathname);
       }
 
-      return name.length >= 2 && isValidEmail(email);
+      return (
+        (profile.name || "").trim().length >= 2 &&
+        isValidEmail((profile.email || "").trim())
+      );
     } catch (error) {
       return false;
     }
@@ -1069,7 +1071,15 @@
     URL.revokeObjectURL(url);
   });
 
-  if (started && profile.name && profile.email) {
+  const autoStartFromQuery = applyQueryProfile();
+
+  if (autoStartFromQuery) {
+    activeSurvey = 0;
+    openQuestionId = null;
+    showSurvey();
+  } else if (started && profile.name && profile.email) {
+    els.profileName.value = profile.name;
+    els.profileEmail.value = profile.email;
     showSurvey();
   } else {
     showStart();
